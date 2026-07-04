@@ -8,13 +8,24 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build Docker image
+      - name: Free disk space
         run: |
+          # Remove unnecessary pre-installed software
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker system prune -af
+          df -h /
+
+      - name: Build and Push
+        env:
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+        run: |
+          # Write Dockerfile
           cat > Dockerfile << 'DOCKERFILE'
           FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 
@@ -40,7 +51,6 @@ jobs:
           RUN python3 -c "
           from huggingface_hub import snapshot_download, hf_hub_download
           import subprocess, os, shutil
-
           snapshot_download(repo_id='yisol/IDM-VTON', local_dir='/models/idm-vton',
                             local_dir_use_symlinks=False, ignore_patterns=['*.md','*.txt','.git*'])
           hf_hub_download(repo_id='ShilongLiu/GroundingDINO', filename='groundingdino_swint_ogc.pth',
@@ -61,14 +71,11 @@ jobs:
           COPY predict.py /project/predict.py
           WORKDIR /project
           ENV PYTHONPATH="/idm_vton_code:$PYTHONPATH"
-          CMD ["python3", "predict.py"]
           DOCKERFILE
 
+          # Build
           docker build -t r8.im/songdiandong/vton-tryon:latest .
 
-      - name: Push to Replicate
-        env:
-          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
-        run: |
+          # Login and push
           echo "$REPLICATE_API_TOKEN" | docker login r8.im -u songdiandong --password-stdin
           docker push r8.im/songdiandong/vton-tryon:latest
