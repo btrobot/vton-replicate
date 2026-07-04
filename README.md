@@ -63,3 +63,14 @@ Requires A40 (48GB) GPU. ~12GB VRAM usage.
 
 Apache 2.0
 
+
+## ⚠️ 硬性规则
+
+**禁止在本地执行 `docker build`、`cog build`、`cog push`。**
+
+所有构建必须通过 GitHub Actions CI 在云端完成：
+- 推送代码到 `main` 分支 → 自动触发 CI
+- CI 使用 `replicate/setup-cog@v2` + `cog push` 构建并推送到 Replicate
+- 本地只做代码编辑和 git push
+
+原因：本地磁盘不足（<10GB），Docker 镜像构建需要 ~15GB。
