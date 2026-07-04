@@ -10,17 +10,11 @@ build:
     - "wget"
   python_requirements: requirements.txt
   run:
-    # Install segment-anything (pure Python)
     - "pip install git+https://github.com/facebookresearch/segment-anything.git"
-    # Install GroundingDINO (CUDA extension, compiled at build time)
     - "pip install groundingdino-py==0.4.0"
-    # Clone ComfyUI-IDM-VTON for custom model classes
     - "git clone --depth 1 https://github.com/TemryL/ComfyUI-IDM-VTON.git /tmp/ComfyUI-IDM-VTON"
     - "cp -r /tmp/ComfyUI-IDM-VTON/src/idm_vton /idm_vton_code"
     - "rm -rf /tmp/ComfyUI-IDM-VTON"
-    # Create models directory (models download at runtime)
     - "mkdir -p /models"
-    # Copy setup script and predictor
-    - "cp setup.sh /setup.sh && chmod +x /setup.sh"
 
 run: "predict.py:Predictor"
