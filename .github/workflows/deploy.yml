@@ -8,7 +8,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
 
     steps:
       - uses: actions/checkout@v4
@@ -26,8 +26,7 @@ jobs:
           token: ${{ secrets.REPLICATE_CLI_AUTH_TOKEN }}
 
       - name: Build and Push
-        run: |
-          cog push r8.im/songdiandong/vton-tryon 2>&1 | tee /tmp/cog-push.log
+        run: cog push r8.im/songdiandong/vton-tryon --no-cache
 
       - name: Upload logs on failure
         if: failure()
