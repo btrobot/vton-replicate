@@ -8,19 +8,67 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Cog
+      - name: Build Docker image
         run: |
-          sudo curl -o /usr/local/bin/cog -L "https://github.com/replicate/cog/releases/download/v0.14.5/cog_Linux_x86_64"
-          sudo chmod +x /usr/local/bin/cog
+          cat > Dockerfile << 'DOCKERFILE'
+          FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+
+          ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1
+
+          RUN apt-get update && apt-get install -y --no-install-recommends \
+              python3.11 python3.11-venv python3-pip \
+              libgl1-mesa-glx libglib2.0-0 ffmpeg git wget \
+              && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
+              && rm -rf /var/lib/apt/lists/*
+
+          COPY requirements.txt /tmp/requirements.txt
+          RUN pip install --no-cache-dir -r /tmp/requirements.txt \
+              && pip install --no-cache-dir \
+                 git+https://github.com/facebookresearch/segment-anything.git \
+                 groundingdino-py==0.4.0 \
+              && rm -rf /tmp/requirements.txt /root/.cache
+
+          RUN git clone --depth 1 https://github.com/TemryL/ComfyUI-IDM-VTON.git /tmp/idm-vton \
+              && cp -r /tmp/idm-vton/src/idm_vton /idm_vton_code \
+              && rm -rf /tmp/idm-vton
+
+          RUN python3 -c "
+          from huggingface_hub import snapshot_download, hf_hub_download
+          import subprocess, os, shutil
+
+          snapshot_download(repo_id='yisol/IDM-VTON', local_dir='/models/idm-vton',
+                            local_dir_use_symlinks=False, ignore_patterns=['*.md','*.txt','.git*'])
+          hf_hub_download(repo_id='ShilongLiu/GroundingDINO', filename='groundingdino_swint_ogc.pth',
+                           local_dir='/models/grounding-dino')
+          hf_hub_download(repo_id='ShilongLiu/GroundingDINO', filename='GroundingDINO_SwinT_OGC.cfg.py',
+                           local_dir='/models/grounding-dino')
+          hf_hub_download(repo_id='LayerNorm/DensePose-TorchScript-with-hint-image',
+                           filename='densepose_r101_fpn_dl.torchscript', local_dir='/models/densepose')
+          os.makedirs('/models/sam', exist_ok=True)
+          subprocess.run(['wget','-q','-O','/models/sam/sam_vit_h_4b8939.pth',
+                           'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth'], check=True)
+          for d in ['/root/.cache/huggingface']:
+              try: shutil.rmtree(d)
+              except: pass
+          print('All models downloaded')
+          "
+
+          COPY predict.py /project/predict.py
+          WORKDIR /project
+          ENV PYTHONPATH="/idm_vton_code:$PYTHONPATH"
+          CMD ["python3", "predict.py"]
+          DOCKERFILE
+
+          docker build -t r8.im/songdiandong/vton-tryon:latest .
 
       - name: Push to Replicate
         env:
           REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
         run: |
-          cog login --token "$REPLICATE_API_TOKEN"
-          cog push r8.im/songdiandong/vton-tryon
+          echo "$REPLICATE_API_TOKEN" | docker login r8.im -u songdiandong --password-stdin
+          docker push r8.im/songdiandong/vton-tryon:latest
