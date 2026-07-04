@@ -26,10 +26,10 @@ jobs:
           token: ${{ secrets.REPLICATE_CLI_AUTH_TOKEN }}
 
       - name: Build and Push
-        run: cog push r8.im/songdiandong/vton-tryon --no-cache
+        run: cog push r8.im/songdiandong/vton-tryon 2>&1 | tee /tmp/cog-push.log
 
-      - name: Upload logs on failure
-        if: failure()
+      - name: Upload build logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: cog-build-logs
