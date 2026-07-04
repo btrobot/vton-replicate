@@ -30,8 +30,53 @@ sys.path.insert(0, IDM_VTON_CODE)
 
 
 class Predictor(BasePredictor):
+
+    def _ensure_models(self):
+        """Download models on first run."""
+        import subprocess
+        done_flag = "/models/.download_complete"
+        if os.path.exists(done_flag):
+            print("✅ Models already downloaded")
+            return
+        
+        print("⏳ Downloading models (~12GB, first run only)...")
+        
+        from huggingface_hub import snapshot_download, hf_hub_download
+        
+        print("  [1/4] IDM-VTON (~8GB)...")
+        snapshot_download(repo_id="yisol/IDM-VTON", local_dir="/models/idm-vton",
+                          local_dir_use_symlinks=False, 
+                          ignore_patterns=["*.md", "*.txt", ".git*"])
+        
+        print("  [2/4] GroundingDINO (~700MB)...")
+        hf_hub_download(repo_id="ShilongLiu/GroundingDINO", 
+                        filename="groundingdino_swint_ogc.pth",
+                        local_dir="/models/grounding-dino")
+        hf_hub_download(repo_id="ShilongLiu/GroundingDINO",
+                        filename="GroundingDINO_SwinT_OGC.cfg.py",
+                        local_dir="/models/grounding-dino")
+        
+        print("  [3/4] DensePose (~300MB)...")
+        hf_hub_download(
+            repo_id="LayerNorm/DensePose-TorchScript-with-hint-image",
+            filename="densepose_r101_fpn_dl.torchscript",
+            local_dir="/models/densepose")
+        
+        print("  [4/4] SAM ViT-H (~2.5GB)...")
+        os.makedirs("/models/sam", exist_ok=True)
+        subprocess.run([
+            "wget", "-q", "-O", "/models/sam/sam_vit_h_4b8939.pth",
+            "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth"
+        ], check=True)
+        
+        Path(done_flag).touch()
+        print("✅ All models downloaded")
+
     def setup(self):
         """Load all 4 models. Runs once at container startup."""
+        # Download models if not already present
+        self._ensure_models()
+        
         print("⏳ Loading models...")
         t0 = time.time()
 
