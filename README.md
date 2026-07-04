@@ -62,3 +62,4 @@ Requires A40 (48GB) GPU. ~12GB VRAM usage.
 ## License
 
 Apache 2.0
+
