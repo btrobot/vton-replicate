@@ -17,46 +17,14 @@ jobs:
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
           sudo docker image prune -af
-          echo "Disk after cleanup:"
           df -h /
 
-      - name: Build Docker image (slim, no model pre-download)
-        run: |
-          cat > Dockerfile << 'DOCKERFILE'
-          FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
-
-          ENV DEBIAN_FRONTEND=noninteractive PYTHONUNBUFFERED=1
-
-          RUN apt-get update && apt-get install -y --no-install-recommends \
-              python3.11 python3-pip \
-              libgl1-mesa-glx libglib2.0-0 ffmpeg git wget \
-              && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
-              && rm -rf /var/lib/apt/lists/*
-
-          COPY requirements.txt /tmp/requirements.txt
-          RUN pip install --no-cache-dir -r /tmp/requirements.txt \
-              && pip install --no-cache-dir \
-                 git+https://github.com/facebookresearch/segment-anything.git \
-                 groundingdino-py==0.4.0 \
-              && rm -rf /tmp/requirements.txt /root/.cache
-
-          RUN git clone --depth 1 https://github.com/TemryL/ComfyUI-IDM-VTON.git /tmp/idm-vton \
-              && cp -r /tmp/idm-vton/src/idm_vton /idm_vton_code \
-              && rm -rf /tmp/idm-vton /root/.cache
-
-          RUN mkdir -p /models/grounding-dino /models/sam /models/densepose /models/idm-vton
-
-          COPY predict.py /project/predict.py
-          COPY setup.sh /project/setup.sh
-          RUN chmod +x /project/setup.sh
-          WORKDIR /project
-          ENV PYTHONPATH="/idm_vton_code:$PYTHONPATH"
-          CMD ["/bin/bash", "-c", "/project/setup.sh && python3 /project/predict.py"]
-          DOCKERFILE
-
-          docker build -t r8.im/songdiandong/vton-tryon:latest .
+      - name: Build Docker image
+        run: docker build -t r8.im/songdiandong/vton-tryon:latest .
 
       - name: Push to Replicate
+        env:
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
         run: |
-          echo "${{ secrets.REPLICATE_API_TOKEN }}" | docker login r8.im -u songdiandong --password-stdin
+          echo "$REPLICATE_API_TOKEN" | docker login r8.im -u songdiandong --password-stdin
           docker push r8.im/songdiandong/vton-tryon:latest
