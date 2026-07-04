@@ -28,11 +28,8 @@ jobs:
           sudo chmod +x /usr/local/bin/cog
           cog version
 
-      - name: Login to Replicate Registry
-        env:
-          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
-        run: |
-          echo "$REPLICATE_API_TOKEN" | cog login -u songdiandong --password-stdin
+      - name: Clean stale build cache
+        run: rm -rf .cog
 
       - name: Build and Push with Cog
         env:
