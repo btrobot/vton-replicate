@@ -1,0 +1,32 @@
+build:
+  gpu: true
+  cuda: "12.1"
+  python_version: "3.11"
+  system_packages:
+    - "libgl1-mesa-glx"
+    - "libglib2.0-0"
+    - "ffmpeg"
+    - "git"
+    - "wget"
+  python_requirements: requirements.txt
+  run:
+    # Install segment-anything (pure Python)
+    - "pip install git+https://github.com/facebookresearch/segment-anything.git"
+    # Install GroundingDINO (CUDA extension, compiled at build time)
+    - "pip install groundingdino-py==0.4.0"
+    # Clone ComfyUI-IDM-VTON for custom model classes
+    - "git clone --depth 1 https://github.com/TemryL/ComfyUI-IDM-VTON.git /tmp/ComfyUI-IDM-VTON"
+    - "cp -r /tmp/ComfyUI-IDM-VTON/src/idm_vton /idm_vton_code"
+    # Pre-download IDM-VTON weights (largest model, ~8GB)
+    - "python -c \"from huggingface_hub import snapshot_download; snapshot_download(repo_id='yisol/IDM-VTON', local_dir='/models/idm-vton', local_dir_use_symlinks=False, ignore_patterns=['*.md','*.txt','.git*'])\""
+    # Pre-download GroundingDINO weights + config
+    - "python -c \"from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='ShilongLiu/GroundingDINO', filename='groundingdino_swint_ogc.pth', local_dir='/models/grounding-dino')\""
+    - "python -c \"from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='ShilongLiu/GroundingDINO', filename='GroundingDINO_SwinT_OGC.cfg.py', local_dir='/models/grounding-dino')\""
+    # Pre-download DensePose TorchScript model
+    - "python -c \"from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='LayerNorm/DensePose-TorchScript-with-hint-image', filename='densepose_r101_fpn_dl.torchscript', local_dir='/models/densepose')\""
+    # Pre-download SAM ViT-H weights (~2.5GB)
+    - "mkdir -p /models/sam && wget -q -O /models/sam/sam_vit_h_4b8939.pth 'https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth'"
+    # Cleanup
+    - "rm -rf /tmp/ComfyUI-IDM-VTON"
+
+run: "predict.py:Predictor"
