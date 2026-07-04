@@ -1,0 +1,26 @@
+name: Deploy to Replicate
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Cog
+        run: |
+          sudo curl -o /usr/local/bin/cog -L "https://github.com/replicate/cog/releases/download/v0.14.5/cog_Linux_x86_64"
+          sudo chmod +x /usr/local/bin/cog
+
+      - name: Push to Replicate
+        env:
+          REPLICATE_API_TOKEN: ${{ secrets.REPLICATE_API_TOKEN }}
+        run: |
+          cog login --token "$REPLICATE_API_TOKEN"
+          cog push r8.im/songdiandong/vton-tryon
